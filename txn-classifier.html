@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearLedger — AI Transaction Classifier</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;600;800&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0b0c0e;
+      --bg2: #13151a;
+      --bg3: #1c1f27;
+      --border: rgba(255, 255, 255, 0.08);
+      --border2: rgba(255, 255, 255, 0.14);
+      --text: #e8e9ed;
+      --text2: #8b8fa8;
+      --text3: #5a5e72;
+      --accent: #4fffb0;
+      --accent2: #00d68a;
+      --accent-dim: rgba(79, 255, 176, 0.12);
+      --red: #ff6b6b;
+      --amber: #ffc947;
+      --blue: #5b9cf6;
+      --purple: #a78bfa;
+      --pink: #f472b6;
+      --teal: #34d399;
+      --orange: #fb923c;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* GRID BG */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79, 255, 176, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 255, 176, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(11, 12, 14, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-decoration: none;
+    }
+
+    .nav-logo span {
+      color: var(--text2);
+    }
+
+    .nav-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border: 1px solid rgba(79, 255, 176, 0.3);
+      border-radius: 20px;
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* HERO */
+    .hero {
+      position: relative;
+      z-index: 1;
+      padding: 80px 2rem 60px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--accent2);
+      background: var(--accent-dim);
+      border: 1px solid rgba(79, 255, 176, 0.2);
+      border-radius: 20px;
+      padding: 4px 12px;
+      margin-bottom: 24px;
+    }
+
+    .hero-tag::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+      }
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    h1 .hl {
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--text2);
+      line-height: 1.7;
+      max-width: 560px;
+      margin-bottom: 40px;
+      font-weight: 400;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #0b0c0e;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 13px 28px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .hero-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(79, 255, 176, 0.25);
+    }
+
+    /* HOW IT WORKS */
+    .section {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem 80px;
+    }
+
+    .section-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+
+    @media (max-width: 600px) {
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .step-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .step-card:hover {
+      border-color: var(--border2);
+    }
+
+    .step-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    .step-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .step-card p {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* MAIN APP */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem 80px;
+    }
+
+    .app-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .app-titlebar {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-r {
+      background: #ff5f57;
+    }
+
+    .dot-y {
+      background: #febc2e;
+    }
+
+    .dot-g {
+      background: #28c840;
+    }
+
+    .titlebar-name {
+      margin-left: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .app-body {
+      padding: 28px;
+    }
+
+    /* TEXTAREA */
+    .input-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sample-btn {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .sample-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      resize: vertical;
+      min-height: 200px;
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 16px;
+    }
+
+    textarea:focus {
+      border-color: rgba(79, 255, 176, 0.4);
+    }
+
+    textarea::placeholder {
+      color: var(--text3);
+    }
+
+    .run-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #0b0c0e;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .run-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(79, 255, 176, 0.2);
+    }
+
+    .run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* PIPELINE STEPS */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 24px 0 16px;
+    }
+
+    .pipe-step {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: var(--bg3);
+      color: var(--text3);
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+
+    .pipe-step.active {
+      background: rgba(79, 255, 176, 0.12);
+      color: var(--accent);
+      border-color: rgba(79, 255, 176, 0.3);
+    }
+
+    .pipe-step.done {
+      background: rgba(52, 211, 153, 0.1);
+      color: var(--teal);
+      border-color: rgba(52, 211, 153, 0.25);
+    }
+
+    .pipe-arrow {
+      color: var(--text3);
+      font-size: 12px;
+    }
+
+    /* STATS */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .stat {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .stat-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--text3);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .stat-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* CHART AREA */
+    .viz-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 580px) {
+      .viz-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .donut-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 8px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .legend-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .legend-cat {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 400;
+    }
+
+    .legend-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-pct {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text2);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .legend-bar-bg {
+      width: 60px;
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .legend-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    /* TABLE */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text3);
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .raw-cell {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text3);
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .merchant-cell {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .amount-cell {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .conf-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .conf-track {
+      width: 48px;
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .conf-fill {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .conf-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* ERROR */
+    .err {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--red);
+      margin-top: 16px;
+    }
+
+    /* FOOTER */
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 32px 2rem;
+      text-align: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    footer span {
+      color: var(--text2);
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-up {
+      animation: fadeUp 0.5s ease forwards;
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav>
+    <a class="nav-logo" href="#">CLEAR<span>LEDGER</span></a>
+    <span class="nav-badge">AI-POWERED</span>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-tag">Powered by Claude Sonnet</div>
+    <h1>Your bank doesn't<br>speak human.<br><span class="hl">We translate.</span></h1>
+    <p class="hero-sub">Paste any raw bank statement — messy codes, weird abbreviations, POS junk. The AI understands
+      that SBUX and STARBUCKS are the same thing.</p>
+    <a href="#app" class="hero-cta">Try it now ↓</a>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section">
+    <p class="section-title">// how it works</p>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">STEP_A — CLEAN</div>
+        <h3>Text Janitor</h3>
+        <p>Strips transaction IDs, POS codes, dates. Turns noise into signal.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STEP_B — VECTORIZE</div>
+        <h3>Semantic Math</h3>
+        <p>"SBUX" and "Starbucks" live close together in vector space. That's why it works.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">STEP_C — CLASSIFY</div>
+        <h3>Smart Labels</h3>
+        <p>Places each transaction into a neighborhood: Food, Travel, Entertainment...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <div class="app-shell" id="app">
+    <p class="section-title">// classifier terminal</p>
+    <div class="app-card">
+      <div class="app-titlebar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="titlebar-name">clearledger — classify.js</span>
+      </div>
+      <div class="app-body">
+        <div class="input-label">
+          <span>// PASTE RAW BANK LINES</span>
+          <button class="sample-btn" onclick="loadSample()">load sample →</button>
+        </div>
+        <textarea id="txn-input"
+          placeholder="2026-03-21 POS PUR STARBUCKS #4412 LONDON - $5.50&#10;NETFLIX.COM/BILL ACC#8821 - $15.99&#10;UBER *TRIP 8XKQ2 SFO - $22.40&#10;..."></textarea>
+        <button class="run-btn" id="run-btn" onclick="classify()">
+          <span id="btn-icon">▶</span>
+          <span id="btn-text">Classify Transactions</span>
+        </button>
+        <div id="results"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span></span> · ClearLedger · Your data never leaves your browser session
+  </footer>
+
+  <script>
+    const SAMPLE = `2026-03-21 POS PUR STARBUCKS #4412 LONDON - $5.50
+2026-03-20 NETFLIX.COM/BILL ACC#8821 - $15.99
+2026-03-19 UBER *TRIP 8XKQ2 SFO - $22.40
+2026-03-19 WHOLEFDS MKT #0372 - $67.30
+2026-03-18 SBUX COFFEE 03/18 - $4.75
+2026-03-17 SPOTIFY PREMIUM - $9.99
+2026-03-17 AMZ*PRIME MEMBERSHIP - $14.99
+2026-03-16 MCDONALDS F&B #2218 - $8.20
+2026-03-16 LYFT *RIDE SAN FRANCISCO - $18.60
+2026-03-15 APPLE.COM/BILL - $2.99
+2026-03-15 TRADER JOE S #472 - $54.80
+2026-03-14 SHELL OIL 57442119 - $48.00
+2026-03-14 CVS PHARMACY #0291 - $12.40
+2026-03-13 AIRBNB * HM3KQ9 - $210.00
+2026-03-12 DELTA AIR 0062841932 - $340.00
+2026-03-12 DUNKIN #3341 BOSTON - $6.80
+2026-03-11 PLANET FITNESS DUES - $24.99
+2026-03-10 CHEESECAKE FACTORY #88 - $78.50
+2026-03-09 WALGREENS #4409 - $18.75
+2026-03-08 HULU LLC INTERNET - $17.99`;
+
+    const CAT_COLORS = {
+      'Food & Drink': '#fb923c',
+      'Groceries': '#4ade80',
+      'Transport': '#5b9cf6',
+      'Entertainment': '#a78bfa',
+      'Shopping': '#fbbf24',
+      'Health & Fitness': '#34d399',
+      'Travel': '#f472b6',
+      'Other': '#6b7280'
+    };
+
+    const CAT_BG = {
+      'Food & Drink': 'rgba(251,146,60,0.15)',
+      'Groceries': 'rgba(74,222,128,0.12)',
+      'Transport': 'rgba(91,156,246,0.15)',
+      'Entertainment': 'rgba(167,139,250,0.15)',
+      'Shopping': 'rgba(251,191,36,0.12)',
+      'Health & Fitness': 'rgba(52,211,153,0.12)',
+      'Travel': 'rgba(244,114,182,0.15)',
+      'Other': 'rgba(107,114,128,0.15)'
+    };
+
+    const CAT_EMOJI = {
+      'Food & Drink': '☕', 'Groceries': '🛒', 'Transport': '🚗',
+      'Entertainment': '🎬', 'Shopping': '🛍', 'Health & Fitness': '💪',
+      'Travel': '✈', 'Other': '📦'
+    };
+
+    let chartInst = null;
+
+    function loadSample() {
+      document.getElementById('txn-input').value = SAMPLE;
+    }
+
+    function setStep(active) {
+      ['s1', 's2', 's3'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (i < active) el.className = 'pipe-step done';
+        else if (i === active) el.className = 'pipe-step active';
+        else el.className = 'pipe-step';
+      });
+    }
+
+    async function classify() {
+      const raw = document.getElementById('txn-input').value.trim();
+      const lines = raw.split('\n').filter(l => l.trim());
+      if (!lines.length) return;
+
+      const btn = document.getElementById('run-btn');
+      btn.disabled = true;
+      document.getElementById('btn-text').textContent = 'Processing...';
+      document.getElementById('btn-icon').textContent = '⏳';
+
+      const res = document.getElementById('results');
+      res.innerHTML = `
+    <div class="pipeline">
+      <div class="pipe-step active" id="s1">A: Cleaning</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step" id="s2">B: Vectorizing</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step" id="s3">C: Classifying</div>
+    </div>
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5a5e72;">Analyzing ${lines.length} transactions...</p>
+  `;
+
+      await sleep(700); setStep(1);
+      await sleep(500); setStep(2);
+
+      const prompt = `You are a bank transaction classifier. Analyze these raw bank statement lines.
+
+For each, return:
+- raw: original line
+- merchant: clean human-readable merchant name
+- category: one of: Food & Drink, Groceries, Transport, Entertainment, Shopping, Health & Fitness, Travel, Other
+- amount: numeric amount parsed from line (0 if unclear)
+- confidence: integer 60-99
+
+Return ONLY a valid JSON array. No markdown, no explanation, no backticks.
+
+Transactions:
+${lines.join('\n')}`;
+
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+        const d = await r.json();
+        const txt = d.content.map(b => b.text || '').join('').replace(/```json|```/g, '').trim();
+        const txns = JSON.parse(txt);
+        setStep(3);
+        await sleep(300);
+        renderResults(txns);
+      } catch (e) {
+        res.innerHTML += `<div class="err">Error: Could not parse AI response. Check your API key or try again.</div>`;
+      }
+
+      btn.disabled = false;
+      document.getElementById('btn-text').textContent = 'Classify Transactions';
+      document.getElementById('btn-icon').textContent = '▶';
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function renderResults(txns) {
+      const total = txns.reduce((s, t) => s + (t.amount || 0), 0);
+      const catMap = {};
+      txns.forEach(t => { catMap[t.category] = (catMap[t.category] || 0) + (t.amount || 0); });
+      const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+      const avgConf = Math.round(txns.reduce((s, t) => s + (t.confidence || 80), 0) / txns.length);
+
+      const legendHTML = cats.map(([c, amt]) => {
+        const pct = Math.round(amt / total * 100);
+        const col = CAT_COLORS[c] || '#6b7280';
+        return `<div class="legend-row">
+      <div class="legend-left">
+        <div class="legend-swatch" style="background:${col}"></div>
+        <span class="legend-cat">${c}</span>
+      </div>
+      <div class="legend-right">
+        <div class="legend-bar-bg"><div class="legend-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <span class="legend-pct">${pct}%</span>
+      </div>
+    </div>`;
+      }).join('');
+
+      const rows = txns.map(t => {
+        const col = CAT_COLORS[t.category] || '#6b7280';
+        const bg = CAT_BG[t.category] || 'rgba(107,114,128,0.15)';
+        const emoji = CAT_EMOJI[t.category] || '📦';
+        const conf = t.confidence || 80;
+        return `<tr>
+      <td><div class="raw-cell" title="${t.raw || ''}">${(t.raw || '').substring(0, 42)}${(t.raw || '').length > 42 ? '…' : ''}</div></td>
+      <td><div class="merchant-cell">${t.merchant || '—'}</div></td>
+      <td><span class="badge" style="background:${bg};color:${col}">${emoji} ${t.category || 'Other'}</span></td>
+      <td><div class="amount-cell">$${(t.amount || 0).toFixed(2)}</div></td>
+      <td><div class="conf-cell">
+        <div class="conf-track"><div class="conf-fill" style="width:${conf}%;background:${col}"></div></div>
+        <span class="conf-num">${conf}%</span>
+      </div></td>
+    </tr>`;
+      }).join('');
+
+      const res = document.getElementById('results');
+      res.innerHTML = `
+    <div class="pipeline">
+      <div class="pipe-step done" id="s1">A: Cleaning</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step done" id="s2">B: Vectorizing</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step done" id="s3">C: Classifying</div>
+    </div>
+    <div class="stats-row fade-up">
+      <div class="stat"><div class="stat-label">Classified</div><div class="stat-val">${txns.length}</div></div>
+      <div class="stat"><div class="stat-label">Total Spent</div><div class="stat-val">$${total.toFixed(0)}</div></div>
+      <div class="stat"><div class="stat-label">Avg Confidence</div><div class="stat-val">${avgConf}%</div></div>
+    </div>
+    <div class="viz-grid fade-up" style="animation-delay:0.1s">
+      <div class="donut-wrap"><canvas id="donut"></canvas></div>
+      <div class="legend">${legendHTML}</div>
+    </div>
+    <div class="table-wrap fade-up" style="animation-delay:0.2s">
+      <table>
+        <thead><tr>
+          <th>Raw Statement</th><th>Merchant</th><th>Category</th><th>Amount</th><th>Confidence</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+
+      if (chartInst) chartInst.destroy();
+      chartInst = new Chart(document.getElementById('donut'), {
+        type: 'doughnut',
+        data: {
+          labels: cats.map(([c]) => c),
+          datasets: [{
+            data: cats.map(([, v]) => parseFloat(v.toFixed(2))),
+            backgroundColor: cats.map(([c]) => CAT_COLORS[c] || '#6b7280'),
+            borderWidth: 0,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: '70%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ` $${ctx.parsed.toFixed(2)}` } }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+
+</html>
